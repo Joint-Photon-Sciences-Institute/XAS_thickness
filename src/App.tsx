@@ -1,14 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { FormData, CalculationResult } from '@/types';
+import { useState, useEffect } from 'react';
+import { FormData, CalculationResult, SampleType, DiluteSampleFormData, DiluteSampleResult } from '@/types';
 import { CalculationForm } from '@/components/CalculationForm';
 import { CalculationReport } from '@/components/CalculationReport';
+import { DiluteSampleForm } from '@/components/DiluteSampleForm';
+import { DiluteSampleReport } from '@/components/DiluteSampleReport';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
 import { calculateThickness } from '@/lib/calculation-engine';
+import { calculateDiluteSample } from '@/lib/dilute-sample-engine';
 import { xraylibService } from '@/lib/xraylib-service';
 
 function App() {
-  const [result, setResult] = useState<CalculationResult | null>(null);
+  const [sampleType, setSampleType] = useState<SampleType>('ThinFilm');
+  const [result, setResult] = useState<CalculationResult | DiluteSampleResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isXraylibLoading, setIsXraylibLoading] = useState(true);
@@ -47,16 +54,59 @@ function App() {
     }
   };
 
+  const handleDiluteSampleSubmit = async (formData: DiluteSampleFormData) => {
+    setIsLoading(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const calculationResult = await calculateDiluteSample(formData);
+      setResult(calculationResult);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred during calculation');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="w-full max-w-2xl space-y-6">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-foreground">XAS Thickness Calculator</h1>
+            <h1 className="text-3xl font-bold text-foreground">XAS Sample Calculator</h1>
             <p className="text-muted-foreground mt-2">
-              Calculate optimal sample thickness for X-ray Absorption Spectroscopy measurements
+              Calculate optimal sample preparation for X-ray Absorption Spectroscopy measurements
             </p>
           </div>
+
+          <Card className="mb-6">
+            <CardContent className="pt-6">
+              <Label className="text-base font-semibold mb-4 block">Sample Type</Label>
+              <RadioGroup
+                value={sampleType}
+                onValueChange={(value) => {
+                  setSampleType(value as SampleType);
+                  setResult(null);
+                  setError(null);
+                }}
+                className="flex flex-row space-x-6"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="ThinFilm" id="thinfilm" />
+                  <Label htmlFor="thinfilm" className="font-normal cursor-pointer">
+                    Thin Film (calculate thickness)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="DiluteSample" id="dilutesample" />
+                  <Label htmlFor="dilutesample" className="font-normal cursor-pointer">
+                    Dilute Sample (calculate masses)
+                  </Label>
+                </div>
+              </RadioGroup>
+            </CardContent>
+          </Card>
 
           {isXraylibLoading && (
             <Alert>
@@ -66,7 +116,11 @@ function App() {
             </Alert>
           )}
 
-          <CalculationForm onSubmit={handleSubmit} isLoading={isLoading || isXraylibLoading} />
+          {sampleType === 'ThinFilm' ? (
+            <CalculationForm onSubmit={handleSubmit} isLoading={isLoading || isXraylibLoading} />
+          ) : (
+            <DiluteSampleForm onSubmit={handleDiluteSampleSubmit} isLoading={isLoading || isXraylibLoading} />
+          )}
 
           {error && (
             <Alert variant="destructive">
@@ -74,7 +128,13 @@ function App() {
             </Alert>
           )}
 
-          {result && <CalculationReport result={result} />}
+          {result && (
+            sampleType === 'ThinFilm' ? (
+              <CalculationReport result={result as CalculationResult} />
+            ) : (
+              <DiluteSampleReport result={result as DiluteSampleResult} />
+            )
+          )}
         </div>
       </div>
     </ErrorBoundary>
