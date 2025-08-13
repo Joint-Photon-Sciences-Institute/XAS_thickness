@@ -1,24 +1,45 @@
-# XAS Thickness Calculator
+# XAS Sample Calculator
 
-A modern web application for calculating optimal sample thickness for X-ray Absorption Spectroscopy (XAS) measurements. Built with React, TypeScript, and powered by the xraylib physics library.
+A comprehensive web application for calculating optimal sample preparation parameters for X-ray Absorption Spectroscopy (XAS) measurements. Supports both thin film thickness calculations and dilute powder sample mass calculations. Built with React, TypeScript, and powered by the xraylib physics library.
 
-![XAS Thickness Calculator](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![XAS Sample Calculator](https://img.shields.io/badge/version-2.0.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## Features
 
-- **Dual Mode Operation**: Support for both Transmission (μt = 1.5) and Fluorescence (μt = 0.5) measurement modes
+### Core Capabilities
+- **Two Calculator Modes**:
+  - **Thin Film**: Calculate optimal thickness for films, foils, and solutions
+  - **Dilute Sample**: Calculate masses for powder pellets and capillaries
+- **Dual Measurement Modes**: Transmission (μt = 1.5) and Fluorescence (μt = 0.5)
+- **Comprehensive Edge Support**: All X-ray absorption edges from K to N shells
+
+### Thin Film Calculator
+- Calculate optimal thickness in micrometers
+- Support for pure and mixed compounds
+- Automatic density lookup with override option
+- Detailed calculation reports
+
+### Dilute Sample Calculator (NEW)
+- Calculate required masses of sample and dilutant
+- Support for pellet and capillary geometries
+- Container material absorption correction (Kapton, Quartz, Polyimide)
+- Adjustable packing factor (30-95%) for powder compactness
+- Common dilutants database (BN, Cellulose, Graphite, etc.)
+- Step-by-step preparation instructions
+- Warnings for impractical mass ranges
+
+### Technical Features
 - **Chemical Formula Parser**: Handles complex formulas including:
   - Simple compounds (e.g., `ZnFe2O4`)
   - Hydrated compounds (e.g., `CuSO4·5H2O`)
   - Parentheses (e.g., `Ca(OH)2`)
   - Decimal stoichiometry (e.g., `Fe0.5Ni0.5O`)
-- **Comprehensive Edge Support**: All X-ray absorption edges from K to N shells
-- **Automatic Density Lookup**: Built-in database of common material densities with estimation for unknowns
-- **Real-time Calculations**: Instant results using client-side physics calculations
-- **Detailed Reports**: Complete calculation breakdown with intermediate values
-- **Dark Mode Support**: Automatic theme adaptation based on system preferences
-- **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **Automatic Density Lookup**: Built-in database of common material densities
+- **Real-time Calculations**: Instant results using xraylib physics engine
+- **Detailed Reports**: Complete calculation breakdown with all assumptions
+- **Dark Mode Support**: Automatic theme adaptation
+- **Responsive Design**: Works on desktop and mobile devices
 
 ## Installation
 
@@ -74,14 +95,33 @@ npm run preview  # Test production build locally
 
 ## Usage
 
-### Basic Example
+### Thin Film Calculator
 
-1. Select measurement mode (Transmission or Fluorescence)
-2. Enter chemical formula: `ZnFe2O4`
-3. Enter absorption edges: `Fe K, Zn K`
-4. Density auto-fills to 5.3 g/cm³
-5. Click "Calculate Thickness"
-6. Result: Recommended thickness ≈18 μm for transmission mode
+1. Select "Thin Film" mode
+2. Choose measurement mode (Transmission or Fluorescence)
+3. Enter chemical formula: `ZnFe2O4`
+4. Enter absorption edges: `Fe K, Zn K`
+5. Density auto-fills to 5.3 g/cm³
+6. Click "Calculate Thickness"
+7. Result: Recommended thickness ≈18 μm for transmission mode
+
+### Dilute Sample Calculator
+
+1. Select "Dilute Sample" mode
+2. Enter sample information:
+   - Formula: `NiO`
+   - Edge: `Ni K`
+   - Mode: Transmission
+3. Choose dilutant (e.g., Boron Nitride)
+4. Select geometry:
+   - Pellet: 10 mm diameter, 1 mm thick
+   - Or Capillary: 1 mm ID, 10 mm length
+5. Adjust packing factor (e.g., 70% for pressed pellet)
+6. Click "Calculate Sample Masses"
+7. Results show:
+   - Sample mass needed (mg)
+   - Dilutant mass needed (mg)
+   - Preparation instructions
 
 ### Advanced Examples
 
@@ -95,10 +135,11 @@ npm run preview  # Test production build locally
 - Edges: `Ni K, Fe K`
 - Auto-filled density: 5.38 g/cm³
 
-**L-shell Edges:**
-- Formula: `Au`
-- Edge: `Au L3`
-- Enter density: 19.32 g/cm³
+**Dilute Sample with Container:**
+- Sample: `Fe2O3`
+- Dilutant: `BN`
+- Container: Kapton tape (25 μm walls)
+- Geometry: 13 mm pellet
 
 ## xraylib Integration
 
@@ -146,15 +187,49 @@ Both the Python server and React app must be running for the application to work
 
 ### Physics Calculations
 
-The calculator uses the following physics principles:
+#### Core Principles
 
-1. **Mass Attenuation Coefficient**: Retrieved from xraylib for each element at 50 eV above the edge energy
-   - Cross-sections are calculated at edge energy + 0.050 keV to avoid edge anomalies
-   - This is standard practice in XAS measurements
+The calculator uses the Beer-Lambert law for X-ray absorption:
+```
+I = I₀ × e^(-μt)
+```
+
+#### Thin Film Calculations
+
+1. **Mass Attenuation Coefficient**: Retrieved from xraylib at 50 eV above edge energy
 2. **Linear Attenuation Coefficient**: μ = (μ/ρ) × ρ
 3. **Optimal Thickness**: t = μt_target / μ
    - Transmission mode: μt = 1.5
    - Fluorescence mode: μt = 0.5
+
+#### Dilute Sample Calculations
+
+1. **Mixture Absorption**: 
+   ```
+   (μ/ρ)_mix = w_sample × (μ/ρ)_sample + w_dilutant × (μ/ρ)_dilutant
+   ```
+2. **Effective Density with Packing Factor**:
+   ```
+   ρ_effective = packing_factor × (w_sample × ρ_sample + w_dilutant × ρ_dilutant)
+   ```
+3. **Mass Calculations**:
+   ```
+   Total_mass = Volume × ρ_effective
+   Sample_mass = Total_mass × w_sample
+   Dilutant_mass = Total_mass × w_dilutant
+   ```
+
+#### Packing Factor
+
+The packing factor represents powder compactness (void fraction):
+- **30-40%**: Loose powder (just poured)
+- **50-60%**: Tapped powder (settled)
+- **70-80%**: Pressed pellet (moderate pressure)
+- **85-95%**: High pressure pellet
+
+**Note**: These are estimates. For accurate results, measure your actual packing factor experimentally.
+
+See `docs/DILUTE_SAMPLE_THEORY.md` for complete theoretical background and assumptions.
 
 ### Architecture
 
@@ -162,11 +237,15 @@ The calculator uses the following physics principles:
 ├── src/                       # Frontend source code
 │   ├── components/            # React UI components
 │   │   ├── ui/               # Base shadcn/ui components
-│   │   ├── CalculationForm.tsx
-│   │   ├── CalculationReport.tsx
+│   │   ├── CalculationForm.tsx     # Thin film input form
+│   │   ├── CalculationReport.tsx   # Thin film results
+│   │   ├── DiluteSampleForm.tsx    # Dilute sample input form
+│   │   ├── DiluteSampleReport.tsx  # Dilute sample results
 │   │   └── ErrorBoundary.tsx
 │   ├── lib/                  # Core calculation logic
-│   │   ├── calculation-engine.ts   # Main calculation logic
+│   │   ├── calculation-engine.ts   # Thin film calculations
+│   │   ├── dilute-sample-engine.ts # Dilute sample calculations
+│   │   ├── container-materials.ts  # Container & dilutant database
 │   │   ├── formula-parser.ts       # Chemical formula parsing
 │   │   ├── edge-parser.ts          # X-ray edge notation parsing
 │   │   ├── density-lookup.ts       # Material density database
@@ -174,6 +253,9 @@ The calculator uses the following physics principles:
 │   │   └── xraylib-service.ts      # xraylib service interface
 │   ├── types/                # TypeScript definitions
 │   └── __tests__/            # Comprehensive test suite
+├── docs/                     # Documentation
+│   ├── DILUTE_SAMPLE_THEORY.md    # Theory and calculations
+│   └── USER_GUIDE.md              # Comprehensive user guide
 ├── xraylib_server.py         # Python API server for xraylib
 ├── requirements.txt          # Python dependencies
 ├── start.sh                  # Unix/Mac startup script
@@ -330,13 +412,25 @@ For optimal performance:
 - Use Prettier for code formatting
 - Update tests for new features
 
+## Documentation
+
+- **[User Guide](docs/USER_GUIDE.md)**: Comprehensive guide for new users with examples
+- **[Theory Document](docs/DILUTE_SAMPLE_THEORY.md)**: Detailed physics, calculations, and assumptions
+- **[API Documentation](docs/API.md)**: Technical API reference (coming soon)
+
 ## References
 
 1. Bunker, G. (2010). *Introduction to XAFS: A Practical Guide to X-ray Absorption Fine Structure Spectroscopy*. Cambridge University Press.
 
-2. Schoonjans, T. et al. (2011). The xraylib library for X-ray-matter interactions. Recent developments. *Spectrochimica Acta Part B*, 66(11-12), 776-784.
+2. Calvin, S. (2013). *XAFS for Everyone*. CRC Press.
 
-3. X-ray Data Booklet. Lawrence Berkeley National Laboratory. http://xdb.lbl.gov/
+3. Schoonjans, T. et al. (2011). The xraylib library for X-ray-matter interactions. Recent developments. *Spectrochimica Acta Part B*, 66(11-12), 776-784.
+
+4. X-ray Data Booklet. Lawrence Berkeley National Laboratory. http://xdb.lbl.gov/
+
+5. Koningsberger, D.C. & Prins, R. (1988). *X-ray Absorption: Principles, Applications, Techniques of EXAFS, SEXAFS and XANES*. Wiley.
+
+6. German, R.M. (1989). *Particle Packing Characteristics*. Metal Powder Industries Federation.
 
 ## License
 

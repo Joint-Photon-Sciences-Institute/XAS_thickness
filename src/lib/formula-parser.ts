@@ -55,9 +55,9 @@ function expandParentheses(formula: string): string {
   let expanded = formula;
   
   const hydrationPattern = /·(\d*\.?\d*)([A-Z][a-z]?\d*\.?\d*)+/g;
-  expanded = expanded.replace(hydrationPattern, (match, multiplier, compound) => {
+  expanded = expanded.replace(hydrationPattern, (_match, multiplier, compound) => {
     const mult = multiplier || '1';
-    return compound.replace(/([A-Z][a-z]?)(\d*\.?\d*)/g, (m: string, elem: string, count: string) => {
+    return compound.replace(/([A-Z][a-z]?)(\d*\.?\d*)/g, (_m: string, elem: string, count: string) => {
       const c = count || '1';
       const newCount = parseFloat(c) * parseFloat(mult);
       return elem + newCount;
@@ -66,9 +66,9 @@ function expandParentheses(formula: string): string {
 
   const parenPattern = /\(([^()]+)\)(\d*\.?\d*)/g;
   while (parenPattern.test(expanded)) {
-    expanded = expanded.replace(parenPattern, (match, inner, multiplier) => {
+    expanded = expanded.replace(parenPattern, (_match, inner, multiplier) => {
       const mult = multiplier || '1';
-      return inner.replace(/([A-Z][a-z]?)(\d*\.?\d*)/g, (m: string, elem: string, count: string) => {
+      return inner.replace(/([A-Z][a-z]?)(\d*\.?\d*)/g, (_m: string, elem: string, count: string) => {
         const c = count || '1';
         const newCount = parseFloat(c) * parseFloat(mult);
         return elem + newCount;

@@ -1,10 +1,29 @@
 export type CalculationMode = 'Transmission' | 'Fluorescence';
+export type SampleType = 'ThinFilm' | 'DiluteSample';
+export type GeometryType = 'Pellet' | 'Capillary';
+export type ContainerMaterial = 'None' | 'Kapton' | 'Quartz' | 'Polyimide';
 
 export interface FormData {
   mode: CalculationMode;
   formula: string;
   edges: string;
   density: string;
+}
+
+export interface DiluteSampleFormData extends FormData {
+  sampleType: SampleType;
+  dilutantFormula: string;
+  dilutantDensity: string;
+  geometry: GeometryType;
+  dimensions: {
+    diameter?: number;
+    thickness?: number;
+    innerDiameter?: number;
+    length?: number;
+  };
+  containerMaterial: ContainerMaterial;
+  containerWallThickness?: number;
+  packingFactor: number;
 }
 
 export type ElementComposition = Map<string, number>;
@@ -29,6 +48,16 @@ export interface CalculationResult {
   edges: EdgeData[];
   recommendedThickness: number;
   report: string;
+}
+
+export interface DiluteSampleResult extends CalculationResult {
+  sampleMass: number;
+  dilutantMass: number;
+  totalMass: number;
+  dilutionRatio: number;
+  effectiveDensity: number;
+  sampleVolume: number;
+  preparationInstructions: string;
 }
 
 export interface XraylibService {
