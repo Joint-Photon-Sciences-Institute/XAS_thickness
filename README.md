@@ -53,7 +53,7 @@ A comprehensive web application for calculating optimal sample preparation param
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/xas-thickness-calculator.git
+git clone https://github.com/Joint-Photon-Sciences-Institute/XAS_thickness.git
 cd xas-thickness-calculator
 ```
 
