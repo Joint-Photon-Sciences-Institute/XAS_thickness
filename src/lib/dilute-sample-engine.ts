@@ -1,3 +1,18 @@
+/**
+ * Dilute Sample Calculation Engine for XAS Sample Preparation
+ * 
+ * This module calculates the required masses of sample and dilutant materials
+ * needed to prepare powder samples (pellets or capillaries) with optimal X-ray
+ * absorption properties for XAS measurements.
+ * 
+ * Key Physics Principles:
+ * - Beer-Lambert Law: I = I₀ × exp(-μt)
+ * - Mixture Rule: (μ/ρ)_mix = Σ w_i × (μ/ρ)_i
+ * - Packing Factor: Accounts for void fraction in powder samples
+ * 
+ * @module dilute-sample-engine
+ */
+
 import { 
   DiluteSampleFormData, 
   DiluteSampleResult, 
@@ -9,37 +24,64 @@ import { parseEdgeLabels } from './edge-parser';
 import { xraylibService } from './xraylib-service';
 import { CONTAINER_MATERIALS } from './container-materials';
 
+/**
+ * Target μt values for optimal XAS measurements
+ * - Transmission: μt = 1.5 (balances signal-to-noise with edge jump)
+ * - Fluorescence: μt = 0.5 (minimizes self-absorption)
+ */
 const TARGET_MU_T = {
   Transmission: 1.5,
   Fluorescence: 0.5,
 };
 
+/**
+ * Main calculation function for dilute sample preparation
+ * 
+ * @param formData - User input data including sample info, geometry, and packing
+ * @returns Calculated masses and preparation instructions
+ * 
+ * Algorithm:
+ * 1. Parse chemical formulas and absorption edges
+ * 2. Calculate molecular weights and mass fractions
+ * 3. For each edge, calculate optimal dilution ratio
+ * 4. Use most restrictive dilution ratio (highest for transmission)
+ * 5. Calculate required masses based on geometry and packing
+ */
 export async function calculateDiluteSample(
   formData: DiluteSampleFormData
 ): Promise<DiluteSampleResult> {
   await xraylibService.load();
   
+  // Parse input chemical formulas
   const sampleComposition = parseChemicalFormula(formData.formula);
   const dilutantComposition = parseChemicalFormula(formData.dilutantFormula);
   const parsedEdges = parseEdgeLabels(formData.edges);
   
+  // Extract densities from form data
   const sampleDensity = parseFloat(formData.density);
   const dilutantDensity = parseFloat(formData.dilutantDensity);
   
+  // Calculate molecular weights for mass fraction calculations
   const sampleMolecularWeight = await calculateMolecularWeight(sampleComposition);
   const dilutantMolecularWeight = await calculateMolecularWeight(dilutantComposition);
   
   const targetMuT = TARGET_MU_T[formData.mode];
   
+  // Calculate geometric volume based on pellet or capillary dimensions
   const sampleVolume = calculateSampleVolume(formData.geometry, formData.dimensions);
   
+  // Apply packing factor to account for void fraction in powder
+  // effectiveVolume = geometricVolume × packingFactor
   const effectiveVolume = sampleVolume * formData.packingFactor;
   
   const edges: EdgeData[] = [];
   let optimalDilutionRatio = 0;
   
+  // Calculate optimal dilution for each absorption edge
+  // Use the most restrictive (highest dilution for transmission mode)
   for (const edge of parsedEdges) {
     const edgeEnergy = await xraylibService.EdgeEnergy(edge.atomicNumber, edge.shellConstant);
+    // Calculate at 50 eV above edge to avoid edge anomalies (standard practice)
     const energyAboveEdge = edgeEnergy + 0.050;
     
     const sampleMassFractions = await calculateMassFractions(sampleComposition, sampleMolecularWeight);
@@ -155,17 +197,28 @@ export async function calculateDiluteSample(
   };
 }
 
+/**
+ * Calculate the geometric volume of the sample holder
+ * 
+ * @param geometry - 'Pellet' or 'Capillary'
+ * @param dimensions - Geometry-specific dimensions in mm
+ * @returns Volume in cm³
+ * 
+ * Formulas:
+ * - Pellet: V = π × (d/2)² × thickness
+ * - Capillary: V = π × (d_inner/2)² × length
+ */
 function calculateSampleVolume(geometry: string, dimensions: any): number {
   if (geometry === 'Pellet') {
-    const radius = (dimensions.diameter || 10) / 2 / 10;
-    const thickness = (dimensions.thickness || 1) / 10;
+    const radius = (dimensions.diameter || 10) / 2 / 10; // Convert mm to cm
+    const thickness = (dimensions.thickness || 1) / 10; // Convert mm to cm
     return Math.PI * radius * radius * thickness;
   } else if (geometry === 'Capillary') {
-    const radius = (dimensions.innerDiameter || 1) / 2 / 10;
-    const length = (dimensions.length || 10) / 10;
+    const radius = (dimensions.innerDiameter || 1) / 2 / 10; // Convert mm to cm
+    const length = (dimensions.length || 10) / 10; // Convert mm to cm
     return Math.PI * radius * radius * length;
   }
-  return 1;
+  return 1; // Default fallback
 }
 
 function calculatePathLength(geometry: string, dimensions: any): number {
@@ -177,6 +230,22 @@ function calculatePathLength(geometry: string, dimensions: any): number {
   return 0.1;
 }
 
+/**
+ * Calculate the optimal mass fraction of sample in the mixture
+ * 
+ * @param sampleMassAtt - Mass attenuation coefficient of pure sample (cm²/g)
+ * @param dilutantMassAtt - Mass attenuation coefficient of pure dilutant (cm²/g)
+ * @param sampleDensity - Density of pure sample (g/cm³)
+ * @param dilutantDensity - Density of pure dilutant (g/cm³)
+ * @param requiredLinearAtt - Target linear attenuation coefficient (cm⁻¹)
+ * @param packingFactor - Fraction of volume occupied by solid (0-1)
+ * @returns Mass fraction of sample in mixture (0-1)
+ * 
+ * Derivation:
+ * μ_mix = [w_s × (μ/ρ)_s + w_d × (μ/ρ)_d] × [w_s × ρ_s + w_d × ρ_d] × PF
+ * where w_s + w_d = 1
+ * Solving for w_s gives the dilution ratio
+ */
 function calculateOptimalDilution(
   sampleMassAtt: number,
   dilutantMassAtt: number,
@@ -185,16 +254,19 @@ function calculateOptimalDilution(
   requiredLinearAtt: number,
   packingFactor: number
 ): number {
+  // Coefficients for linear equation: A×w_s + B = C
   const A = (sampleMassAtt * sampleDensity - dilutantMassAtt * dilutantDensity) * packingFactor;
   const B = dilutantMassAtt * dilutantDensity * packingFactor;
   const C = requiredLinearAtt;
   
+  // Handle degenerate case where sample and dilutant have same absorption
   if (Math.abs(A) < 1e-10) {
-    return 0.5;
+    return 0.5; // Arbitrary choice when materials are equivalent
   }
   
   const dilutionRatio = (C - B) / A;
   
+  // Constrain to physical limits (0.1% to 99.9% sample)
   return Math.max(0.001, Math.min(0.999, dilutionRatio));
 }
 
@@ -268,6 +340,21 @@ function getAtomicNumber(element: string): number {
   return Z_TABLE[element] || 1;
 }
 
+/**
+ * Generate detailed sample preparation instructions
+ * 
+ * @param formData - User input data
+ * @param sampleMass - Calculated sample mass in grams
+ * @param dilutantMass - Calculated dilutant mass in grams  
+ * @param dilutionRatio - Mass fraction of sample in mixture
+ * @returns Markdown-formatted preparation instructions
+ * 
+ * Instructions include:
+ * - Required materials and masses
+ * - Mixing procedure
+ * - Geometry-specific preparation steps
+ * - Safety considerations
+ */
 function generatePreparationInstructions(
   formData: DiluteSampleFormData,
   sampleMass: number,

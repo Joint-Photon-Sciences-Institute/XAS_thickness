@@ -435,6 +435,13 @@ export function DiluteSampleForm({ onSubmit, isLoading = false }: DiluteSampleFo
               {formData.packingFactor >= 0.7 && formData.packingFactor < 0.9 && "Well packed - typical for pressed pellets"}
               {formData.packingFactor >= 0.9 && "Highly compacted - requires high pressure"}
             </p>
+            <Alert>
+              <AlertDescription className="text-xs">
+                <strong>Note:</strong> Packing factor = (bulk density / theoretical density). 
+                These are estimates based on typical powder behavior. For accurate results, 
+                measure your actual packing factor experimentally. See documentation for details.
+              </AlertDescription>
+            </Alert>
           </div>
 
           <Button type="submit" className="w-full" loading={isLoading}>
